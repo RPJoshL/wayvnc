@@ -216,7 +216,7 @@ static struct wv_buffer* wv_buffer_create_dmabuf(int width, int height,
 	self->bo = have_linux_cma() ?
 		create_cma_gbm_bo(width, height, fourcc) :
 		gbm_bo_create(gbm_device, width, height, fourcc,
-				GBM_BO_USE_RENDERING);
+				GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT);
 	if (!self->bo)
 		goto bo_failure;
 
