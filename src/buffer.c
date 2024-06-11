@@ -38,12 +38,12 @@
 #include <sys/ioctl.h>
 #include <fcntl.h>
 
-#ifdef HAVE_LINUX_DMA_HEAP
+// #ifdef HAVE_LINUX_DMA_HEAP
 #include <linux/dma-buf.h>
 #include <linux/dma-heap.h>
 
 #define LINUX_CMA_PATH "/dev/dma_heap/linux,cma"
-#endif // HAVE_LINUX_DMA_HEAP
+//#endif // HAVE_LINUX_DMA_HEAP
 #endif // ENABLE_SCREENCOPY_DMABUF
 
 extern struct wl_shm* wl_shm;
@@ -218,14 +218,16 @@ static struct wv_buffer* wv_buffer_create_dmabuf(int width, int height,
 	self->height = height;
 	self->format = fourcc;
 
-#ifdef HAVE_LINUX_DMA_HEAP
+// Checks not needed anymore. Fixed with SCANOUT and within neatvnc for most GPUs.
+// But this could still fail!
+//#ifdef HAVE_LINUX_DMA_HEAP
 	self->bo = have_linux_cma() ?
 		create_cma_gbm_bo(width, height, fourcc) :
 		gbm_bo_create(gbm_device, width, height, fourcc,
-				GBM_BO_USE_RENDERING);
-#endif
-	self->bo = gbm_bo_create(gbm_device, width, height, fourcc,
-				GBM_BO_USE_RENDERING);
+				GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT);
+//#endif
+//	self->bo = gbm_bo_create(gbm_device, width, height, fourcc,
+//				GBM_BO_USE_RENDERING);
 
 	if (!self->bo)
 		goto bo_failure;
