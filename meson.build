@@ -16,6 +16,7 @@ prefix = get_option('prefix')
 c_args = [
 	'-D_GNU_SOURCE',
 	'-DAML_UNSTABLE_API=1',
+	'-DWLR_USE_UNSTABLE=true',
 
 	'-Wno-unused-parameter',
 	'-Wno-missing-field-initializers',
@@ -53,8 +54,15 @@ pixman = dependency('pixman-1')
 gbm = dependency('gbm', required: get_option('screencopy-dmabuf'))
 drm = dependency('libdrm')
 xkbcommon = dependency('xkbcommon', version: '>=1.0.0')
+wayland_server = dependency('wayland-server')
 wayland_client = dependency('wayland-client')
+wayland_client_protocol = dependency('wayland-protocols')
+wayland_cursor = dependency('wayland-cursor')
 jansson = dependency('jansson')
+
+# Cursor image
+x11_dep = dependency('x11')
+x11_fixes_dep = dependency('xfixes')
 
 aml_version = ['>=1.0.0', '<2.0.0']
 neatvnc_version = ['>=0.10', '<1.0.0']
@@ -78,7 +86,7 @@ else
 	neatvnc = dependency('neatvnc', version: neatvnc_version)
 endif
 
-inc = include_directories('include')
+inc = include_directories('include', '/usr/include/wlroots0.16')
 
 subdir('protocols')
 
@@ -120,6 +128,11 @@ dependencies = [
 	xkbcommon,
 	client_protos,
 	jansson,
+	x11_dep,
+	x11_fixes_dep,
+	wayland_client_protocol,
+	wayland_cursor,
+	wayland_server
 ]
 
 ctlsources = [

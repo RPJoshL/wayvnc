@@ -63,6 +63,10 @@
 #include "buffer.h"
 #include "time-util.h"
 
+#include <stdio.h>
+#include <X11/Xlib.h>
+#include <X11/extensions/Xfixes.h>
+
 #ifdef ENABLE_PAM
 #include "pam_auth.h"
 #endif
@@ -780,6 +784,125 @@ static void on_pointer_event(struct nvnc_client* client, uint16_t x, uint16_t y,
 	output_transform_coord(wayvnc->selected_output, x, y, &xfx, &xfy);
 
 	pointer_set(&wv_client->pointer, xfx, xfy, button_mask);
+
+
+	// This workaround would only work for x11 apps rendered in xwayland.
+	// It does NOT work for wayland!
+	// Waylan doesn't have any API to get the cursor image like in x11.
+	// We would need to grab and parse the surface of the pointer which is a pain.
+	// Would that even work with hardware cursors?
+	/*
+	/
+		static char ascii_art[] =
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  "
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXX   "
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXXX    "
+		"XXXXXXXXXXXXXXXXXXXXXXXXXXX     "
+		"XXXXXXXXXXXXXXXXXXXXXXXXXX      "
+		"XXXXXXXXXXXXXXXXXXXXXXXXX       "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXXX                        "
+		"XXXXXXX                         "
+		"XXXXXX                          "
+		"XXXXX                           "
+		"XXXX                            "
+		"XXX                             "
+		"XX                              "
+		"X                               ";
+
+
+
+
+#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
+	uint32_t colour = 0x00ff00ffULL;
+#else
+	uint32_t colour = 0xff00ff00ULL;
+#endif
+
+	// Print current x11 image
+	Display *display = XOpenDisplay(NULL);
+	if (!display) {
+        fprintf(stderr, "Failed to open X display\n");
+    }
+
+	XFixesCursorImage *img = XFixesGetCursorImage(display);
+	printf("Cursor serial: %ld (%d x %d)\n", img->cursor_serial, img->width, img->height);
+
+
+	//struct nvnc_fb* fb = nvnc_fb_new(32, 32, DRM_FORMAT_RGBA8888, 32);
+	//assert(fb);
+
+	//uint32_t* pixels = nvnc_fb_get_addr(fb);
+
+	//for (int i = 0; i < 32 * 32; ++i) {
+	//	pixels[i] = ascii_art[i] != ' ' ? colour : 0;
+	//}
+
+	//nvnc_set_cursor(wv_client->server->nvnc, fb, 32, 32, 0, 0, true);
+	//nvnc_fb_unref(fb);
+	*/
+	/**
+	 * 	The cursor image itself is returned as a single image at 32 bits per
+		pixel with 8 bits of alpha in the most significant 8 bits of the
+		pixel followed by 8 bits each of red, green and finally 8 bits of
+		blue in the least significant 8 bits.  The color components are
+		pre-multiplied with the alpha component.
+		Colors are 0xrrggbb
+	*/
+/*
+	struct nvnc_fb* fb = nvnc_fb_new(img->width, img->height, DRM_FORMAT_RGBA8888, 24);
+	assert(fb);
+
+	// Xlib stores 32-bit data in longs, even if longs are 64-bits long.
+  	unsigned long* argb_data = img->pixels;
+  	//uint32_t* dst = reinterpret_cast<uint32_t*>(image->data());
+  	//uint32_t* dst_end = dst + (img->width * img->height);
+  	//while (dst < dst_end) {
+    //	*dst++ = static_cast<uint32_t>(*src++);
+  	//}
+
+	uint32_t* pixels = nvnc_fb_get_addr(fb);
+
+	for (int i = 0; i < img->width * img->height; ++i) {
+		// We need to put alpha to the end of hex fo nvnc buffer
+		uint8_t a = ((argb_data[i] >> 24) & 0xff);  
+        uint8_t r = ((argb_data[i] >> 16) & 0xff);  
+        uint8_t g = ((argb_data[i] >>  8) & 0xff);
+        uint8_t b = ((argb_data[i] >>  0) & 0xff);
+
+		pixels[i] = ((uint32_t)r << 24) | ((uint32_t)g << 16) | ((uint32_t)b << 8) | a;
+	}
+
+	// TODO: use listener!
+	// CursorNotify
+	//   https://chromium.googlesource.com/external/webrtc/stable/webrtc/+/master/modules/desktop_capture/mouse_cursor_monitor_x11.cc
+	//   https://github.com/zwcloud/XcbSharp/blob/7d012ec64a2f5e6207da708d70856466ab35e173/xfixes.xml#L125
+	//   sudo pacman -S libx11 libxfixes
+	//    g++ file.c -lX11 -lXfixes -o tt
+
+	nvnc_set_cursor(wv_client->server->nvnc, fb, img->width, img->height, img->xhot, img->yhot / 2, true);
+	nvnc_fb_unref(fb);
+
+	XFree(img);
+	XCloseDisplay(display);
+	*/
 }
 
 static void on_key_event(struct nvnc_client* client, uint32_t symbol,
