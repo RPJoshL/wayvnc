@@ -43,10 +43,10 @@
 #include <fcntl.h>
 #include <xf86drm.h>
 
-#ifdef HAVE_LINUX_DMA_HEAP
+// #ifdef HAVE_LINUX_DMA_HEAP
 #include <linux/dma-buf.h>
 #include <linux/dma-heap.h>
-#endif // HAVE_LINUX_DMA_HEAP
+// #endif // HAVE_LINUX_DMA_HEAP
 #endif // ENABLE_SCREENCOPY_DMABUF
 
 extern struct wayland* wayland;
@@ -187,7 +187,7 @@ failure:
 }
 
 #ifdef ENABLE_SCREENCOPY_DMABUF
-#ifdef HAVE_LINUX_DMA_HEAP
+// #ifdef HAVE_LINUX_DMA_HEAP
 static const char *get_cma_path(void)
 {
 	static const char *path;
@@ -263,7 +263,7 @@ static struct gbm_bo* create_cma_gbm_bo(int width, int height, uint32_t fourcc,
 
 	return bo;
 }
-#endif // HAVE_LINUX_DMA_HEAP
+// #endif // HAVE_LINUX_DMA_HEAP
 
 #ifdef ENABLE_SCREENCOPY_DMABUF
 static void wv_gbm_device_ref(struct wv_gbm_device* dev)
@@ -309,17 +309,19 @@ static struct wv_buffer* wv_buffer_create_dmabuf(
 		memcpy(self->modifiers, config->modifiers, self->n_modifiers * 8);
 	}
 
-#ifdef HAVE_LINUX_DMA_HEAP
+// Checks not needed anymore. Fixed with SCANOUT and within neatvnc for most GPUs.
+// But this could still fail!
+// #ifdef HAVE_LINUX_DMA_HEAP
 	if (get_cma_path()) {
 		self->bo = create_cma_gbm_bo(config->width, config->height,
 					config->format, gbm);
 	} else
-#endif
+// #endif
 	{
 		self->bo = gbm_bo_create_with_modifiers2(gbm->dev,
 				config->width, config->height, config->format,
 				config->modifiers, config->n_modifiers,
-				GBM_BO_USE_RENDERING);
+				GBM_BO_USE_RENDERING | GBM_BO_USE_SCANOUT);
 	}
 
 	if (!self->bo)
