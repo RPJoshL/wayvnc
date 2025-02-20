@@ -260,6 +260,9 @@ static void output_setup_xdg_output_manager(struct output* self)
 
 const char* output_power_state_name(enum output_power_state state)
 {
+	// Power management is disabled so we alweas return a powered on monitor
+	return "ON";
+
 	switch(state) {
 	case OUTPUT_POWER_ON:
 		return "ON";
