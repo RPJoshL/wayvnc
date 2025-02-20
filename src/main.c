@@ -1307,19 +1307,9 @@ int wayvnc_start_capture_immediate(struct wayvnc* self)
 	if (self->capture_retry_timer)
 		return 0;
 
-	struct output* output = self->selected_output;
-	int rc = output_acquire_power_on(output);
-	if (rc == 0) {
-		nvnc_log(NVNC_LOG_DEBUG, "Acquired power state management. Waiting for power event to start capturing");
-		return 0;
-	} else if (rc > 0 && output->power != OUTPUT_POWER_ON) {
-		nvnc_log(NVNC_LOG_DEBUG, "Output power state management already acquired, but not yet powered on");
-		return 0;
-	} else if (rc < 0) {
-		nvnc_log(NVNC_LOG_WARNING, "Failed to acquire power state control. Capturing may fail.");
-	}
 
-	rc = screencopy_start(self->screencopy, true);
+	// Note: power management is obviously not supported for a dummy HDMI adapter which breaks capturing
+	int rc = screencopy_start(self->screencopy, true);
 	if (rc < 0) {
 		nvnc_log(NVNC_LOG_ERROR, "Failed to start capture. Exiting...");
 		wayvnc_exit(self);
