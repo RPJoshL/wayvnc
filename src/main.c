@@ -601,6 +601,24 @@ static void on_pointer_event(struct nvnc_client* client, double x, double y,
 			     enum nvnc_button_mask button_mask)
 {
 	struct wayvnc_client* wv_client = nvnc_client_get_userdata(client);
+
+	static int counter = 0;
+    static FILE *fp = NULL;
+
+	if (fp == NULL) {
+        fp = fopen("/mnt/ramdisk/cursor", "a");
+        if (!fp) {
+            printf("File open failed");
+        }
+    }
+
+	counter++;
+	if (counter >= 15 && fp != NULL) {
+		fprintf(fp, "%d;%d\n", x, y);
+		fflush(fp);
+		counter = 0;
+	}
+
 	struct wayvnc* wayvnc = wv_client->server;
 
 	if (!wv_client->pointer.pointer) {
