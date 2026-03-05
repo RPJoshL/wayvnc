@@ -31,6 +31,12 @@
 
 static const char custom_mime_type_data[] = "wayvnc";
 
+// To not overhelm clients with data, we limit the size of the clipboard to send.
+// We could set this theoretically to 1 Mib (tested with 960000 bytes), but when using
+// wnvcc with "--hide-cursor" the limit is by 65 KiB. I can't really say for sure why this is the case.
+// For 1 MiB we get an error message from wayland protocols, but for 65 KiB nothing
+static const long unsigned int MAX_CLIPBOARD_SIZE = 65000;
+
 struct receive_context {
 	struct nvnc* server;
 	struct aml_handler* handler;
@@ -88,11 +94,13 @@ static void on_receive(struct aml_handler* handler)
 		return;
 	}
 
-	if (ctx->buffer.len != 0)
-		nvnc_send_cut_text(ctx->server, ctx->buffer.data,
-				ctx->buffer.len);
-	wv_vec_clear(&ctx->buffer);
+	if (ctx->buffer.len > MAX_CLIPBOARD_SIZE) {
+		nvnc_log(NVNC_LOG_WARNING, "Not sending clipboard content because it exceedes the max size: %zu bytes", ctx->buffer.len);
+	} else if (ctx->buffer.len != 0) {
+		nvnc_send_cut_text(ctx->server, ctx->buffer.data, ctx->buffer.len);
+	}
 
+	wv_vec_clear(&ctx->buffer);
 	destroy_receive_context(ctx);
 }
 
