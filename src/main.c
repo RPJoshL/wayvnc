@@ -141,6 +141,7 @@ struct wayvnc {
 
 	bool start_detached;
 	bool overlay_cursor;
+	bool screencopy_overlay_active;
 	int max_rate;
 	bool enable_gpu_features;
 	bool enable_resizing;
@@ -186,6 +187,9 @@ static void on_cursor_capture_done(enum screencopy_result result,
 		struct wv_buffer* buffer, struct image_source* source,
 		void* userdata);
 static void on_nvnc_client_new(struct nvnc_client* client);
+static void on_nvnc_client_encodings(struct nvnc_client* client);
+static bool wayvnc_wants_framebuffer_cursor(struct wayvnc* self);
+static void wayvnc_sync_framebuffer_cursor_overlay(struct wayvnc* self);
 void switch_to_output(struct wayvnc*, struct output*);
 void switch_to_next_output(struct wayvnc*);
 void switch_to_prev_output(struct wayvnc*);
@@ -1456,6 +1460,7 @@ static int init_nvnc(struct wayvnc* self)
 	nvnc_set_key_code_fn(self->nvnc, on_key_code_event);
 
 	nvnc_set_new_client_fn(self->nvnc, on_nvnc_client_new);
+	nvnc_set_client_encodings_fn(self->nvnc, on_nvnc_client_encodings);
 	nvnc_set_cut_text_fn(self->nvnc, on_client_cut_text);
 
 	return 0;
@@ -1865,6 +1870,8 @@ static void client_destroy(void* obj)
 	nvnc_log(NVNC_LOG_DEBUG, "Client disconnected, new client count: %d",
 			wayvnc->nr_clients);
 
+	wayvnc_sync_framebuffer_cursor_overlay(wayvnc);
+
 	if (self->server->exit_on_disconnect && self->server->nr_clients == 0) {
 		wayvnc_exit(wayvnc);
 	}
@@ -2265,8 +2272,8 @@ bool configure_screencopy(struct wayvnc* self)
 	screencopy_stop(self->screencopy);
 	screencopy_destroy(self->screencopy);
 
-	self->screencopy = screencopy_create(self->image_source,
-			self->overlay_cursor);
+	self->screencopy_overlay_active = wayvnc_wants_framebuffer_cursor(self);
+	self->screencopy = screencopy_create(self->image_source, self->screencopy_overlay_active);
 	if (!self->screencopy) {
 		nvnc_log(NVNC_LOG_ERROR, "screencopy is not supported by compositor");
 		return false;
@@ -2288,6 +2295,49 @@ bool configure_screencopy(struct wayvnc* self)
 	self->screencopy->enable_linux_dmabuf = self->enable_gpu_features;
 
 	return true;
+}
+
+static bool wayvnc_wants_framebuffer_cursor(struct wayvnc* self)
+{
+	if (self->overlay_cursor)
+		return true;
+
+	if (!self->nvnc)
+		return false;
+
+	struct nvnc_client* client;
+
+	for (client = nvnc_client_first(self->nvnc); client;
+			client = nvnc_client_next(client)) {
+		if (!nvnc_client_supports_cursor(client))
+			return true;
+	}
+
+	return false;
+}
+
+static void wayvnc_sync_framebuffer_cursor_overlay(struct wayvnc* self)
+{
+	if (!wayland || !self->screencopy)
+		return;
+
+	bool want = wayvnc_wants_framebuffer_cursor(self);
+	if (want == self->screencopy_overlay_active)
+		return;
+
+	if (!configure_screencopy(self))
+		return;
+
+	if (self->nr_clients > 0)
+		wayvnc_start_capture_immediate(self);
+}
+
+static void on_nvnc_client_encodings(struct nvnc_client* client)
+{
+	struct nvnc* nvnc = nvnc_client_get_server(client);
+	struct wayvnc* self = nvnc_get_userdata(nvnc);
+
+	wayvnc_sync_framebuffer_cursor_overlay(self);
 }
 
 static void on_toplevel_closed(struct toplevel* toplevel)
