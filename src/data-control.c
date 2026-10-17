@@ -31,11 +31,8 @@
 
 static const char custom_mime_type_data[] = "wayvnc";
 
-// To not overhelm clients with data, we limit the size of the clipboard to send.
-// We could set this theoretically to 1 Mib (tested with 960000 bytes), but when using
-// wnvcc with "--hide-cursor" the limit is by 65 KiB. I can't really say for sure why this is the case.
-// For 1 MiB we get an error message from wayland protocols, but for 65 KiB nothing
-static const long unsigned int MAX_CLIPBOARD_SIZE = 65000;
+// To not overhelm clients with data, we limit the size of the clipboard to send
+static const long unsigned int MAX_CLIPBOARD_SIZE = 960000;
 
 struct receive_context {
 	struct nvnc* server;
