@@ -627,6 +627,9 @@ static void cursor_handle_enter(void* data,
 		struct ext_image_copy_capture_cursor_session_v1* cursor)
 {
 	struct ext_image_copy_capture* self = data;
+
+	nvnc_log(NVNC_LOG_DEBUG, "Cursor visible");
+
 	if (self->parent.cursor_enter)
 		self->parent.cursor_enter(self->parent.userdata);
 }
@@ -635,6 +638,9 @@ static void cursor_handle_leave(void* data,
 		struct ext_image_copy_capture_cursor_session_v1* cursor)
 {
 	struct ext_image_copy_capture* self = data;
+
+	nvnc_log(NVNC_LOG_DEBUG, "Cursor hidden");
+
 	if (self->parent.cursor_leave)
 		self->parent.cursor_leave(self->parent.userdata);
 }

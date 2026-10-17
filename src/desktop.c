@@ -30,6 +30,9 @@ static void desktop_capture_handle_done(enum screencopy_result result,
 		void* userdata);
 static double desktop_capture_rate_format(const void* userdata,
 		enum wv_buffer_type type, uint32_t format, uint64_t modifier);
+static void desktop_capture_cursor_leave(void* userdata);
+static void desktop_capture_cursor_enter(void* userdata);
+static void desktop_capture_bind_cursor_hooks(struct screencopy* sc);
 
 extern struct wayland* wayland;
 
@@ -242,6 +245,7 @@ static struct desktop_output *desktop_output_create(struct output* output,
 			sc->on_done = desktop_capture_handle_done;
 			sc->rate_format = desktop_capture_rate_format;
 			sc->enable_linux_dmabuf = false;
+			desktop_capture_bind_cursor_hooks(sc);
 			self->cursor_sc = sc;
 		}
 	}
@@ -358,6 +362,28 @@ struct desktop* desktop_new(struct wl_list* output_list)
 
 struct screencopy_impl desktop_capture_impl;
 
+static void desktop_capture_cursor_leave(void* userdata)
+{
+	struct desktop_capture* self = userdata;
+
+	if (self->base.cursor_leave)
+		self->base.cursor_leave(self->base.userdata);
+}
+
+static void desktop_capture_cursor_enter(void* userdata)
+{
+	struct desktop_capture* self = userdata;
+
+	if (self->base.cursor_enter)
+		self->base.cursor_enter(self->base.userdata);
+}
+
+static void desktop_capture_bind_cursor_hooks(struct screencopy* sc)
+{
+	sc->cursor_leave = desktop_capture_cursor_leave;
+	sc->cursor_enter = desktop_capture_cursor_enter;
+}
+
 static void desktop_capture_handle_done(enum screencopy_result result,
 		struct wv_buffer* buffer, struct image_source* source,
 		void* userdata)
@@ -446,6 +472,7 @@ static struct screencopy* desktop_capture_create_cursor(
 		sc->on_done = desktop_capture_handle_done;
 		sc->rate_format = desktop_capture_rate_format;
 		sc->enable_linux_dmabuf = false;
+		desktop_capture_bind_cursor_hooks(sc);
 		desktop_output->cursor_sc = sc;
 	}
 

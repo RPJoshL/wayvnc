@@ -204,6 +204,7 @@ static bool wayland_attach(struct wayvnc* self, const char* display,
 static void wayland_detach(struct wayvnc* self);
 static bool configure_cursor_sc(struct wayvnc* self,
 		struct wayvnc_client* client);
+static void wayvnc_start_cursor_capture(struct wayvnc* self, bool immediate);
 static bool wayvnc_desktop_display_add(struct wayvnc* self,
 		struct image_source* image_source);
 static struct wayvnc_display *wayvnc_display_find_by_source(struct wayvnc* self,
@@ -708,123 +709,6 @@ static void on_pointer_event(struct nvnc_client* client, double x, double y,
 
 	pointer_set(&wv_client->pointer, xf.x, xf.y, button_mask);
 
-	// This workaround would only work for x11 apps rendered in xwayland.
-	// It does NOT work for wayland!
-	// Waylan doesn't have any API to get the cursor image like in x11.
-	// We would need to grab and parse the surface of the pointer which is a pain.
-	// Would that even work with hardware cursors?
-	/*
-	/
-		static char ascii_art[] =
-		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
-		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX "
-		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX  "
-		"XXXXXXXXXXXXXXXXXXXXXXXXXXXXX   "
-		"XXXXXXXXXXXXXXXXXXXXXXXXXXXX    "
-		"XXXXXXXXXXXXXXXXXXXXXXXXXXX     "
-		"XXXXXXXXXXXXXXXXXXXXXXXXXX      "
-		"XXXXXXXXXXXXXXXXXXXXXXXXX       "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXXX                        "
-		"XXXXXXX                         "
-		"XXXXXX                          "
-		"XXXXX                           "
-		"XXXX                            "
-		"XXX                             "
-		"XX                              "
-		"X                               ";
-
-
-
-
-#if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-	uint32_t colour = 0x00ff00ffULL;
-#else
-	uint32_t colour = 0xff00ff00ULL;
-#endif
-
-	// Print current x11 image
-	Display *display = XOpenDisplay(NULL);
-	if (!display) {
-        fprintf(stderr, "Failed to open X display\n");
-    }
-
-	XFixesCursorImage *img = XFixesGetCursorImage(display);
-	printf("Cursor serial: %ld (%d x %d)\n", img->cursor_serial, img->width, img->height);
-
-
-	//struct nvnc_fb* fb = nvnc_fb_new(32, 32, DRM_FORMAT_RGBA8888, 32);
-	//assert(fb);
-
-	//uint32_t* pixels = nvnc_fb_get_addr(fb);
-
-	//for (int i = 0; i < 32 * 32; ++i) {
-	//	pixels[i] = ascii_art[i] != ' ' ? colour : 0;
-	//}
-
-	//nvnc_set_cursor(wv_client->server->nvnc, fb, 32, 32, 0, 0, true);
-	//nvnc_fb_unref(fb);
-	*/
-	/**
-	 * 	The cursor image itself is returned as a single image at 32 bits per
-		pixel with 8 bits of alpha in the most significant 8 bits of the
-		pixel followed by 8 bits each of red, green and finally 8 bits of
-		blue in the least significant 8 bits.  The color components are
-		pre-multiplied with the alpha component.
-		Colors are 0xrrggbb
-	*/
-/*
-	struct nvnc_fb* fb = nvnc_fb_new(img->width, img->height, DRM_FORMAT_RGBA8888, 24);
-	assert(fb);
-
-	// Xlib stores 32-bit data in longs, even if longs are 64-bits long.
-  	unsigned long* argb_data = img->pixels;
-  	//uint32_t* dst = reinterpret_cast<uint32_t*>(image->data());
-  	//uint32_t* dst_end = dst + (img->width * img->height);
-  	//while (dst < dst_end) {
-    //	*dst++ = static_cast<uint32_t>(*src++);
-  	//}
-
-	uint32_t* pixels = nvnc_fb_get_addr(fb);
-
-	for (int i = 0; i < img->width * img->height; ++i) {
-		// We need to put alpha to the end of hex fo nvnc buffer
-		uint8_t a = ((argb_data[i] >> 24) & 0xff);  
-        uint8_t r = ((argb_data[i] >> 16) & 0xff);  
-        uint8_t g = ((argb_data[i] >>  8) & 0xff);
-        uint8_t b = ((argb_data[i] >>  0) & 0xff);
-
-		pixels[i] = ((uint32_t)r << 24) | ((uint32_t)g << 16) | ((uint32_t)b << 8) | a;
-	}
-
-	// TODO: use listener!
-	// CursorNotify
-	//   https://chromium.googlesource.com/external/webrtc/stable/webrtc/+/master/modules/desktop_capture/mouse_cursor_monitor_x11.cc
-	//   https://github.com/zwcloud/XcbSharp/blob/7d012ec64a2f5e6207da708d70856466ab35e173/xfixes.xml#L125
-	//   sudo pacman -S libx11 libxfixes
-	//    g++ file.c -lX11 -lXfixes -o tt
-
-	nvnc_set_cursor(wv_client->server->nvnc, fb, img->width, img->height, img->xhot, img->yhot / 2, true);
-	nvnc_fb_unref(fb);
-
-	XFree(img);
-	XCloseDisplay(display);
-	*/
 }
 
 static void on_key_event(struct nvnc_client* client, uint32_t symbol,
@@ -1989,8 +1873,9 @@ static void client_init_pointer(struct wayvnc_client* self)
 		wl_display_dispatch_pending(wayland->display);
 
 		configure_cursor_sc(wayvnc, self);
-		if (wayvnc->cursor_sc)
+		if (wayvnc->cursor_sc) {
 			screencopy_start(wayvnc->cursor_sc, true);
+		}
 	}
 }
 
@@ -2145,6 +2030,18 @@ void log_image_source(struct wayvnc* self)
 	}
 }
 
+static void on_cursor_compositor_leave(void* userdata)
+{
+	struct wayvnc* self = userdata;
+
+	nvnc_set_cursor(self->nvnc, NULL, 0, 0, true);
+}
+
+static void on_cursor_compositor_enter(void* userdata)
+{
+	// No update required as we get a new cursor
+}
+
 static void wayvnc_process_cursor(struct wayvnc* self, struct wv_buffer* buffer,
 		struct image_source* source)
 {
@@ -2167,8 +2064,7 @@ static void wayvnc_process_cursor(struct wayvnc* self, struct wv_buffer* buffer,
 	int x_hotspot = round(h_scale * buffer->x_hotspot);
 	int y_hotspot = round(v_scale * buffer->y_hotspot);
 
-	nvnc_set_cursor(self->nvnc, buffer->nvnc_frame, x_hotspot, y_hotspot,
-			is_damaged);
+	nvnc_set_cursor(self->nvnc, buffer->nvnc_frame, x_hotspot, y_hotspot, is_damaged);
 
 	wv_buffer_release(buffer);
 
@@ -2259,6 +2155,8 @@ static bool configure_cursor_sc(struct wayvnc* self,
 	self->cursor_sc->on_done = on_cursor_capture_done;
 	self->cursor_sc->rate_format = rate_cursor_format;
 	self->cursor_sc->userdata = self;
+	self->cursor_sc->cursor_leave = on_cursor_compositor_leave;
+	self->cursor_sc->cursor_enter = on_cursor_compositor_enter;
 
 	self->cursor_sc->rate_limit = self->max_rate * 2;
 	self->cursor_sc->enable_linux_dmabuf = false;
